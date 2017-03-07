@@ -1,14 +1,31 @@
 package continuity
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"sort"
 
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	pb "github.com/stevvooe/continuity/proto"
+)
+
+const (
+	// MediaTypeManifestV0Protobuf is the media type for manifest formatted as protobuf.
+	// The format is unstable during v0.
+	MediaTypeManifestV0Protobuf = "application/vnd.continuity.manifest.v0+pb"
+	// MediaTypeManifestV0JSON is the media type for manifest formatted as JSON.
+	// JSON is marshalled from protobuf using manifestJSONMarshaler.
+	// (jsonpb.Marshaler{EnumAsInts = false, EmitDefaults = false, OrigName = false})
+	// The format is unstable during v0.
+	MediaTypeManifestV0JSON = "application/vnd.continuity.manifest.v0+json"
+)
+
+var (
+	manifestJSONMarshaler = &jsonpb.Marshaler{}
 )
 
 // Manifest provides the contents of a manifest. Users of this struct should
@@ -18,11 +35,20 @@ type Manifest struct {
 	Resources []Resource
 }
 
-func Unmarshal(p []byte) (*Manifest, error) {
+func Unmarshal(p []byte, mediaType string) (*Manifest, error) {
 	var bm pb.Manifest
 
-	if err := proto.Unmarshal(p, &bm); err != nil {
-		return nil, err
+	switch mediaType {
+	case MediaTypeManifestV0Protobuf:
+		if err := proto.Unmarshal(p, &bm); err != nil {
+			return nil, err
+		}
+	case MediaTypeManifestV0JSON:
+		if err := jsonpb.Unmarshal(bytes.NewReader(p), &bm); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("unsupported media type: %s", mediaType)
 	}
 
 	var m Manifest
@@ -38,13 +64,24 @@ func Unmarshal(p []byte) (*Manifest, error) {
 	return &m, nil
 }
 
-func Marshal(m *Manifest) ([]byte, error) {
+func Marshal(m *Manifest, mediaType string) ([]byte, error) {
 	var bm pb.Manifest
 	for _, resource := range m.Resources {
 		bm.Resource = append(bm.Resource, toProto(resource))
 	}
 
-	return proto.Marshal(&bm)
+	switch mediaType {
+	case MediaTypeManifestV0Protobuf:
+		return proto.Marshal(&bm)
+	case MediaTypeManifestV0JSON:
+		var b bytes.Buffer
+		if err := manifestJSONMarshaler.Marshal(&b, &bm); err != nil {
+			return nil, err
+		}
+		return b.Bytes(), nil
+	default:
+		return nil, fmt.Errorf("unsupported media type: %s", mediaType)
+	}
 }
 
 func MarshalText(w io.Writer, m *Manifest) error {

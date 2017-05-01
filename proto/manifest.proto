@@ -12,22 +12,26 @@ message Resource {
     // Path specifies the path from the bundle root. If more than one
     // path is present, the entry may represent a hardlink, rather than using
     // a link target. The path format is operating system specific.
+    // Path MAY be an absolute path, but it MUST be interpreted with the bundle root.
     repeated string path = 1;
 
     // NOTE(stevvooe): Need to define clear precedence for user/group/uid/gid precedence.
 
     // Uid specifies the user id for the resource. A string type is used for
     // compatibility across different OS.
+    // On Unix, uid MUST be a positive decimal integer or an empty string.
     string uid = 2;
 
     // Gid specifies the group id for the resource. A string type is used for
     // compatibility across different OS.
+    // On Unix, gid MUST be a positive decimal integer or an empty string.
     string gid = 3;
 
+    // User and group specify the user name and the group name for the resource.
     // user and group are not currently used but their field numbers have been
     // reserved for future use. As such, they are marked as deprecated.
-    string user = 4 [deprecated=true];
-    string group = 5 [deprecated=true];
+    string user = 4 [deprecated=true]; // "deprecated" stands for "reserved" here
+    string group = 5 [deprecated=true]; // "deprecated" stands for "reserved" here
 
     // Mode defines the file mode and permissions. We've used the same
     // bit-packing from Go's os package,
@@ -42,7 +46,9 @@ message Resource {
     uint64 size = 7;
 
     // Digest specifies the content digest of the target file. Only valid for
-    // regular files. The strings are formatted as <alg>:<digest hex bytes>.
+    // regular files. The strings are formatted in OCI style, i.e. <alg>:<encoded>.
+    // For detailed information about the format, please refer to OCI Image Spec:
+    // https://github.com/opencontainers/image-spec/blob/master/descriptor.md#digests-and-verification
     // The digests are sorted in lexical order and implementations may choose
     // which algorithms they prefer.
     repeated string digest = 8;

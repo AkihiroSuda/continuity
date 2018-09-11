@@ -19,21 +19,21 @@ func testSupportsDType(t *testing.T, expected bool, mkfs ...string) {
 	}
 	defer os.RemoveAll(mnt)
 
-	deviceName, cleanupDevice, err := testutil.NewLoopback(100 << 20) // 100 MB
+	loopback, err := testutil.NewLoopback(100 << 20) // 100 MB
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out, err := exec.Command(mkfs[0], append(mkfs[1:], deviceName)...).CombinedOutput(); err != nil {
+	if out, err := exec.Command(mkfs[0], append(mkfs[1:], loopback.Device)...).CombinedOutput(); err != nil {
 		// not fatal
-		t.Skipf("could not mkfs (%v) %s: %v (out: %q)", mkfs, deviceName, err, string(out))
+		t.Skipf("could not mkfs (%v) %s: %v (out: %q)", mkfs, loopback.Device, err, string(out))
 	}
-	if out, err := exec.Command("mount", deviceName, mnt).CombinedOutput(); err != nil {
+	if out, err := exec.Command("mount", loopback.Device, mnt).CombinedOutput(); err != nil {
 		// not fatal
-		t.Skipf("could not mount %s: %v (out: %q)", deviceName, err, string(out))
+		t.Skipf("could not mount %s: %v (out: %q)", loopback.Device, err, string(out))
 	}
 	defer func() {
 		testutil.Unmount(t, mnt)
-		cleanupDevice()
+		loopback.Close()
 	}()
 	// check whether it supports d_type
 	result, err := SupportsDType(mnt)
